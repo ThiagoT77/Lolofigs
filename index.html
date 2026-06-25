@@ -234,6 +234,23 @@ footer.nota{text-align:center;color:var(--ink-soft);font-size:11.5px;padding:18p
   </div>
 </div>
 
+<div class="overlay" id="overlay-edit">
+  <div class="overlay-card">
+    <h3 id="edit-titulo">Editar item</h3>
+    <div class="form-grid" style="text-align:left">
+      <div style="grid-column:1/-1"><label>Nome</label><input id="edit-nome"></div>
+      <div style="grid-column:1/-1"><label>Preço (R$)</label><input id="edit-preco" type="number" step="0.5"></div>
+    </div>
+    <div style="text-align:left;margin-top:12px">
+      <label style="font-size:11px;color:var(--ink-soft);font-weight:600">Foto atual / nova</label>
+      <div class="preview-foto" id="preview-edit"></div>
+      <input id="edit-foto" type="file" accept="image/*" onchange="previewFoto(this,'preview-edit')" style="margin-top:8px">
+    </div>
+    <button class="btn-primario" style="width:100%;margin-top:16px" onclick="salvarEdicao()">Salvar alterações</button>
+    <button class="btn-fechar" onclick="fecharEdit()">Cancelar</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 <footer class="nota">Catálogo informativo. O pagamento é combinado direto no WhatsApp e a baixa de estoque é feita pelo vendedor.</footer>
 
@@ -278,7 +295,7 @@ let catalog={};            // {code:{grupo,label,tipo,preco,estoque,custom}}
 let orders=[];             // array de pedidos
 let config={whatsapp:'5561992095651',precoPadrao:2};
 let photos={};             // cache local de fotos (code -> dataURL)
-let pendingPhoto={add:null,av:null};
+let pendingPhoto={add:null,av:null,edit:null};
 let cart={};
 let currentView='loja';
 let painelDestravado=false;
@@ -487,8 +504,34 @@ function resizeImage(file,maxDim,q){
 async function previewFoto(input,alvo){
   if(!input.files||!input.files[0])return;
   const dataURL=await resizeImage(input.files[0],520,0.7);
-  pendingPhoto[alvo==='preview-add'?'add':'av']=dataURL;
+  const key=alvo==='preview-add'?'add':(alvo==='preview-edit'?'edit':'av');
+  pendingPhoto[key]=dataURL;
   document.getElementById(alvo).innerHTML=`<img src="${dataURL}" alt="">`;
+}
+let editCode=null;
+function abrirEdit(code){
+  const it=catalog[code];if(!it)return;
+  editCode=code;pendingPhoto.edit=null;
+  document.getElementById('edit-titulo').textContent='Editar '+code;
+  document.getElementById('edit-nome').value=it.label||'';
+  document.getElementById('edit-preco').value=it.preco;
+  document.getElementById('edit-foto').value='';
+  document.getElementById('preview-edit').innerHTML='<small>Carregando foto atual…</small>';
+  loadPhoto(code).then(url=>{document.getElementById('preview-edit').innerHTML=url?`<img src="${url}" alt="">`:'<small>Sem foto atual.</small>';});
+  document.getElementById('overlay-edit').classList.add('show');
+}
+function fecharEdit(){document.getElementById('overlay-edit').classList.remove('show');editCode=null;pendingPhoto.edit=null;}
+async function salvarEdicao(){
+  if(!db||!editCode)return;
+  const it=catalog[editCode];if(!it){fecharEdit();return;}
+  const nome=document.getElementById('edit-nome').value.trim();
+  let preco=parseFloat(document.getElementById('edit-preco').value);
+  if(isNaN(preco)||preco<0){toast('Preço inválido.');return;}
+  await db.ref('catalog/'+editCode+'/preco').set(preco);
+  await db.ref('catalog/'+editCode+'/label').set(nome||nomeGrupo(it.grupo));
+  if(pendingPhoto.edit){await db.ref('photos/'+editCode).set(pendingPhoto.edit);photos[editCode]=pendingPhoto.edit;pendingPhoto.edit=null;}
+  toast(editCode+' atualizado.');
+  fecharEdit();
 }
 async function adicionar2026(){
   if(!db){toast('Banco não conectado.');return;}
@@ -539,6 +582,7 @@ function renderEstoque(){
       <div class="estoque-acoes">
         <button class="btn-mini" onclick="baixar('${jsStr(code)}')" title="Baixar 1 unidade">−1</button>
         <input class="estoque-num" type="number" min="0" value="${it.estoque}" onchange="setEstoque('${jsStr(code)}',this.value)">
+        <button class="btn-mini ghost" onclick="abrirEdit('${jsStr(code)}')" title="Editar preço/foto/nome">✏️</button>
         <button class="btn-mini ghost" onclick="removerItem('${jsStr(code)}')" title="Remover">🗑</button>
       </div>
     </div>`).join('');
