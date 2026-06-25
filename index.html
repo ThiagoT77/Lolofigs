@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Figurinhas Álbum da Copa 2026 - Loja</title>
+<title>Loló Figs</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Anton&family=Work+Sans:wght@400;500;600;700&display=swap');
 :root{
@@ -12,7 +12,9 @@
 }
 *{box-sizing:border-box;}
 body{margin:0;font-family:'Work Sans',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;padding-bottom:92px;}
-header{padding:24px 20px 14px;text-align:center;border-bottom:3px solid var(--ink);background:var(--paper-dark);}
+header{padding:24px 20px 14px;text-align:center;border-bottom:3px solid var(--ink);background:var(--paper-dark);position:relative;}
+.painel-btn{position:absolute;top:14px;right:14px;width:38px;height:38px;border-radius:50%;border:2px solid var(--ink);background:var(--white);color:var(--ink);font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+.painel-btn:active{background:var(--ink);}
 h1{font-family:'Anton',sans-serif;font-size:clamp(26px,6.5vw,40px);letter-spacing:1px;margin:0;text-transform:uppercase;}
 header p{margin:5px 0 0;color:var(--ink-soft);font-size:13px;}
 .tabs{display:flex;justify-content:center;gap:10px;margin:14px 0 0;}
@@ -117,12 +119,9 @@ footer.nota{text-align:center;color:var(--ink-soft);font-size:11.5px;padding:18p
 <body>
 
 <header>
-  <h1>Figurinhas da Copa</h1>
+  <button class="painel-btn" id="painel-toggle" onclick="togglePainel()" title="Painel do vendedor" aria-label="Painel do vendedor">🖥️</button>
+  <h1>Loló Figs</h1>
   <p>Catálogo — pedido fechado pelo WhatsApp. Botão abaixo.</p>
-  <div class="tabs">
-    <button class="tab active" id="tab-loja" onclick="mostrarView('loja')">Loja</button>
-    <button class="tab" id="tab-painel" onclick="mostrarView('painel')">Painel do vendedor</button>
-  </div>
 </header>
 
 <main>
@@ -350,10 +349,11 @@ function mostrarView(v){
   document.getElementById('view-loja').style.display=v==='loja'?'block':'none';
   document.getElementById('view-painel').style.display=v==='painel'?'block':'none';
   document.getElementById('resumo-bar').style.display=v==='loja'?'flex':'none';
-  document.getElementById('tab-loja').classList.toggle('active',v==='loja');
-  document.getElementById('tab-painel').classList.toggle('active',v==='painel');
+  const pb=document.getElementById('painel-toggle');
+  if(pb){pb.textContent=v==='painel'?'🏪':'🖥️';pb.title=v==='painel'?'Voltar à loja':'Painel do vendedor';}
   atualizarResumo();
 }
+function togglePainel(){mostrarView(currentView==='painel'?'loja':'painel');}
 
 /* ---------- fotos ---------- */
 async function loadPhoto(code){
