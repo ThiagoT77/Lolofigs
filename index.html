@@ -148,6 +148,11 @@ button{font-family:inherit;}
 .btn-save{margin-top:13px;background:var(--brand);color:#fff;border:none;padding:11px 18px;border-radius:10px;font-weight:600;cursor:pointer;}
 .btn-ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line);padding:9px 14px;border-radius:9px;font-weight:600;cursor:pointer;font-size:13px;}
 .preview-foto img{max-width:92px;border-radius:8px;border:1px solid var(--line);margin-top:6px;}
+.estoque-stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.stat{background:var(--brand-soft);color:var(--brand-dark);border-radius:10px;padding:8px 13px;font-size:13px;font-weight:600;}
+.stat b{font-family:var(--display);font-size:17px;display:block;line-height:1.1;}
+.stat.alerta{background:#FCEDE9;color:var(--red);}
+.lote-panel{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px;background:var(--bg);}
 .lista-item{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);}
 .lista-item img,.lista-item .li-ph{width:44px;height:58px;border-radius:7px;object-fit:cover;background:#E6EEE7;flex:none;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;color:var(--muted);text-align:center;}
 .li-meta{flex:1;min-width:0;}
@@ -283,7 +288,20 @@ footer.rod{max-width:1040px;margin:0 auto;padding:24px 18px 40px;color:var(--mut
 
       <div class="secao">
         <h2>Meu estoque</h2>
-        <p class="sub">Use "−1" para baixa avulsa, o lápis para editar preço/foto/nome, e a lixeira para remover.</p>
+        <p class="sub">Use "−1" para baixa avulsa, o lápis para editar preço/foto/nome/tipo, e a lixeira para remover.</p>
+        <div id="estoque-stats" class="estoque-stats"></div>
+        <button class="btn-ghost" onclick="toggleLote()" style="margin-bottom:10px">✎ Editar preço em lote</button>
+        <div id="lote-panel" class="lote-panel" style="display:none">
+          <p class="sub" style="margin:0 0 10px">Define um novo preço para <b>todas</b> as figurinhas de um tipo de uma vez.</p>
+          <div class="fgrid">
+            <div><label>Tipo</label><select id="lote-tipo">
+              <option value="__ALL__">Todos os tipos</option>
+              <option>Normal</option><option>Brilhante</option><option>Legend</option><option>Escudo</option><option>Estádio</option><option>Copa 2022</option><option>Repetida</option>
+            </select></div>
+            <div><label>Novo preço (R$)</label><input id="lote-preco" type="number" step="0.5" placeholder="2.50"></div>
+          </div>
+          <button class="btn-save" onclick="editarEmLote()">Aplicar preço ao tipo</button>
+        </div>
         <div id="estoque-lista"></div>
       </div>
 
@@ -740,6 +758,15 @@ async function adicionarAvulsa(){
 function renderEstoque(){
   const cont=document.getElementById('estoque-lista');if(!cont)return;
   const itens=Object.entries(catalog).sort((a,b)=>a[0].localeCompare(b[0],'pt',{numeric:true}));
+  const stats=document.getElementById('estoque-stats');
+  if(stats){
+    const totalCad=itens.length;
+    const totalUnid=itens.reduce((s,[c,it])=>s+(Number(it.estoque)||0),0);
+    const esgotadas=itens.filter(([c,it])=>(Number(it.estoque)||0)<=0).length;
+    stats.innerHTML=`<div class="stat"><b>${totalCad}</b>figurinhas cadastradas</div>
+      <div class="stat"><b>${totalUnid}</b>unidades em estoque</div>
+      ${esgotadas>0?`<div class="stat alerta"><b>${esgotadas}</b>esgotadas</div>`:''}`;
+  }
   if(!itens.length){cont.innerHTML='<p class="empty">Nada cadastrado ainda.</p>';return;}
   cont.innerHTML=itens.map(([code,it])=>`
     <div class="lista-item">
@@ -753,6 +780,21 @@ function renderEstoque(){
       </div>
     </div>`).join('');
   itens.forEach(async([code])=>{const url=await loadPhoto(code);if(url){const el=cont.querySelector(`.li-ph[data-photo="${cssAttr(code)}"]`);if(el)el.outerHTML=`<img src="${url}" alt="">`;}});
+}
+function toggleLote(){const p=document.getElementById('lote-panel');p.style.display=p.style.display==='none'?'block':'none';}
+async function editarEmLote(){
+  if(!db||!logado){toast('Faça login.');return;}
+  const tipo=document.getElementById('lote-tipo').value;
+  const preco=parseFloat(document.getElementById('lote-preco').value);
+  if(isNaN(preco)||preco<0){toast('Informe um preço válido.');return;}
+  const alvos=Object.entries(catalog).filter(([c,it])=>tipo==='__ALL__'?true:it.tipo===tipo);
+  if(!alvos.length){toast('Nenhuma figurinha desse tipo.');return;}
+  const rotulo=tipo==='__ALL__'?'todos os tipos':`tipo "${tipo}"`;
+  if(!confirm(`Alterar o preço de ${alvos.length} figurinha(s) de ${rotulo} para ${fmt(preco)}?`))return;
+  const updates={};alvos.forEach(([c])=>{updates[c+'/preco']=preco;});
+  await db.ref('catalog').update(updates);
+  document.getElementById('lote-preco').value='';
+  toast(alvos.length+' figurinha(s) atualizada(s).');
 }
 async function baixar(code){if(!db)return;const it=catalog[code];if(!it||it.estoque<=0)return;await db.ref('catalog/'+code+'/estoque').transaction(c=>Math.max(0,(c||0)-1));toast('Baixa de 1 unidade.');}
 async function setEstoque(code,v){if(!db)return;const n=parseInt(v,10);if(isNaN(n)||n<0){toast('Número inválido.');return;}await db.ref('catalog/'+code+'/estoque').set(n);toast('Estoque atualizado.');}
